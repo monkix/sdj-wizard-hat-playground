@@ -168,13 +168,13 @@ function HeroVisual() {
   return (
     <div className="hero-visual" aria-hidden="true">
       <div className="hero-card hero-card-left">
-        <img src="/wizard-card-backs/reward.png" alt="" />
+        <img src="/wizard-cards/card-027.png" alt="" />
       </div>
       <div className="hero-card hero-card-main">
-        <img src="/wizard-card-backs/twist.png" alt="" />
+        <img src="/wizard-cards/card-087.png" alt="" />
       </div>
       <div className="hero-card hero-card-right">
-        <img src="/wizard-card-backs/touch.png" alt="" />
+        <img src="/wizard-cards/card-041.png" alt="" />
       </div>
       <span className="hero-token core-token">CORE</span>
       <span className="hero-token taste-token">TASTE</span>
@@ -399,7 +399,7 @@ function MechanicSection({ title, description, filters, selectedMechanic, onSele
             onClick={() => onSelect(filter.id)}
           >
             <div className="card-thumb">
-              <img src={`/wizard-card-backs/${filter.card}`} alt="" />
+              <img src={`/wizard-cards/${filter.card}`} alt="" />
             </div>
             <div className="mechanic-card-copy">
               <span>{filter.shortLabel ?? filter.label}</span>

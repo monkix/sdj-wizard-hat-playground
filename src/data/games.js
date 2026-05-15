@@ -16,31 +16,31 @@ export const mechanicFilters = [
 ];
 
 export const coreMechanicFilters = [
-  { id: "co-operation", label: "Co-Operation", category: "Conflict", card: "conflict.png", coreField: "conflict", match: "Co-Operation", color: "teal" },
-  { id: "competitive", label: "Competitive", category: "Conflict", card: "conflict.png", coreField: "conflict", match: "Competitive", color: "orange" },
-  { id: "fixed-turn-order", label: "Fixed Turn Order", category: "Order", card: "order.png", coreField: "order", match: "Fixed Turn Order", color: "teal" },
-  { id: "simultaneous-action-selection", label: "Simultaneous Action Selection", category: "Order", card: "order.png", coreField: "order", match: "Simultaneous Action Selection", color: "orange" },
-  { id: "dynamic-order", label: "Dynamics Turn Order", category: "Order", card: "order.png", coreField: "order", match: "Dynamics Turn Order", color: "teal" },
-  { id: "mission-success", label: "Mission Success", category: "Win Condition", card: "reward.png", coreField: "win", match: "Mission Success", color: "orange" },
-  { id: "victory-points", label: "Victory Points", category: "Win Condition", card: "reward.png", coreField: "win", match: "Victory Points", color: "teal" },
-  { id: "fixed-number-rounds", label: "Fixed Number of Rounds", category: "End Trigger", card: "ending.png", coreField: "end", match: "Fixed Number of Rounds", color: "orange" },
-  { id: "completing-targets", label: "Completing Targets", category: "End Trigger", card: "ending.png", coreField: "end", match: "Completing Targets", color: "teal" },
-  { id: "exhausting-resources", label: "Exhausting Resources", category: "End Trigger", card: "ending.png", coreField: "end", match: "Exhausting Resources", color: "orange" },
+  { id: "co-operation", label: "Co-Operation", category: "Conflict", card: "card-003.png", coreField: "conflict", match: "Co-Operation", color: "teal" },
+  { id: "competitive", label: "Competitive", category: "Conflict", card: "card-001.png", coreField: "conflict", match: "Competitive", color: "orange" },
+  { id: "fixed-turn-order", label: "Fixed Turn Order", category: "Order", card: "card-009.png", coreField: "order", match: "Fixed Turn Order", color: "teal" },
+  { id: "simultaneous-action-selection", label: "Simultaneous Action Selection", category: "Order", card: "card-011.png", coreField: "order", match: "Simultaneous Action Selection", color: "orange" },
+  { id: "dynamic-order", label: "Dynamics Turn Order", category: "Order", card: "card-015.png", coreField: "order", match: "Dynamics Turn Order", color: "teal" },
+  { id: "mission-success", label: "Mission Success", category: "Win Condition", card: "card-027.png", coreField: "win", match: "Mission Success", color: "orange" },
+  { id: "victory-points", label: "Victory Points", category: "Win Condition", card: "card-031.png", coreField: "win", match: "Victory Points", color: "teal" },
+  { id: "fixed-number-rounds", label: "Fixed Number of Rounds", category: "End Trigger", card: "card-017.png", coreField: "end", match: "Fixed Number of Rounds", color: "orange" },
+  { id: "completing-targets", label: "Completing Targets", category: "End Trigger", card: "card-023.png", coreField: "end", match: "Completing Targets", color: "teal" },
+  { id: "exhausting-resources", label: "Exhausting Resources", category: "End Trigger", card: "card-019.png", coreField: "end", match: "Exhausting Resources", color: "orange" },
 ];
 
 export const tasteMechanicFilters = [
-  { id: "communication-limits", label: "Communication Limits", category: "Twist", card: "twist.png", tasteName: "Communication Limits", color: "teal" },
-  { id: "tile-laying", label: "Tile Laying, Pattern Building, Jigsaw", shortLabel: "Tile Laying", category: "Touch", card: "touch.png", tasteName: "Tile Laying, Pattern Building, Jigsaw", color: "orange" },
-  { id: "deduction", label: "Deduction, Hidden Information", shortLabel: "Deduction", category: "Twist", card: "twist.png", tasteName: "Deduction, Hidden Information", color: "teal" },
-  { id: "dexterity", label: "Dexterity", category: "Touch", card: "touch.png", tasteName: "Dexterity", color: "orange" },
-  { id: "push-your-luck", label: "Push your luck", category: "Twist", card: "twist.png", tasteName: "Push your luck", color: "teal" },
-  { id: "engine-building", label: "Engine Building, Supply Chains", shortLabel: "Engine Building", category: "Strategy", card: "strategy.png", tasteName: "Engine Building, Supply Chains", color: "orange" },
-  { id: "drafting", label: "Drafting, Action Selection", shortLabel: "Drafting", category: "Strategy", card: "strategy.png", tasteName: "Drafting, Action Selection", color: "teal" },
-  { id: "set-collection", label: "Set Collection", category: "Asset", card: "asset.png", tasteName: "Set Collection", color: "orange" },
-  { id: "targeted-clues", label: "Targeted Clues", category: "Engage", card: "engage.png", tasteName: "Targeted Clues", color: "teal" },
-  { id: "output-randomness", label: "Output Randomness", category: "Twist", card: "twist.png", tasteName: "Output Randomness", color: "orange" },
-  { id: "hand-management", label: "Hand Management, Command", shortLabel: "Hand Management", category: "Strategy", card: "strategy.png", tasteName: "Hand Management, Command", color: "teal" },
-  { id: "worker-placement", label: "Worker Placement, Action Point", shortLabel: "Worker Placement", category: "Strategy", card: "strategy.png", tasteName: "Worker Placement, Action Point", color: "orange" },
+  { id: "communication-limits", label: "Communication Limits", category: "Twist", card: "card-087.png", tasteName: "Communication Limits", color: "teal" },
+  { id: "tile-laying", label: "Tile Laying, Pattern Building, Jigsaw", shortLabel: "Tile Laying", category: "Touch", card: "card-041.png", tasteName: "Tile Laying, Pattern Building, Jigsaw", color: "orange" },
+  { id: "deduction", label: "Deduction, Hidden Information", shortLabel: "Deduction", category: "Twist", card: "card-083.png", tasteName: "Deduction, Hidden Information", color: "teal" },
+  { id: "dexterity", label: "Dexterity", category: "Touch", card: "card-033.png", tasteName: "Dexterity", color: "orange" },
+  { id: "push-your-luck", label: "Push your luck", category: "Twist", card: "card-093.png", tasteName: "Push your luck", color: "teal" },
+  { id: "engine-building", label: "Engine Building, Supply Chains", shortLabel: "Engine Building", category: "Strategy", card: "card-067.png", tasteName: "Engine Building, Supply Chains", color: "orange" },
+  { id: "drafting", label: "Drafting, Action Selection", shortLabel: "Drafting", category: "Strategy", card: "card-061.png", tasteName: "Drafting, Action Selection", color: "teal" },
+  { id: "set-collection", label: "Set Collection", category: "Asset", card: "card-079.png", tasteName: "Set Collection", color: "orange" },
+  { id: "targeted-clues", label: "Targeted Clues", category: "Engage", card: "card-053.png", tasteName: "Targeted Clues", color: "teal" },
+  { id: "output-randomness", label: "Output Randomness", category: "Twist", card: "card-089.png", tasteName: "Output Randomness", color: "orange" },
+  { id: "hand-management", label: "Hand Management, Command", shortLabel: "Hand Management", category: "Strategy", card: "card-043.png", tasteName: "Hand Management, Command", color: "teal" },
+  { id: "worker-placement", label: "Worker Placement, Action Point", shortLabel: "Worker Placement", category: "Strategy", card: "card-063.png", tasteName: "Worker Placement, Action Point", color: "orange" },
 ];
 
 export const games = [
