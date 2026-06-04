@@ -22,6 +22,7 @@ import { awardLanes, coreMechanicFilters, games, tasteMechanicFilters, years } f
 import "./styles.css";
 
 const defaultGameId = "sky-team-2024";
+const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
 
 function App() {
   const [selectedGameId, setSelectedGameId] = useState(defaultGameId);
@@ -168,13 +169,13 @@ function HeroVisual() {
   return (
     <div className="hero-visual" aria-hidden="true">
       <div className="hero-card hero-card-left">
-        <img src="/wizard-cards/card-027.png" alt="" />
+        <img src={assetPath("wizard-cards/card-027.png")} alt="" />
       </div>
       <div className="hero-card hero-card-main">
-        <img src="/wizard-cards/card-087.png" alt="" />
+        <img src={assetPath("wizard-cards/card-087.png")} alt="" />
       </div>
       <div className="hero-card hero-card-right">
-        <img src="/wizard-cards/card-041.png" alt="" />
+        <img src={assetPath("wizard-cards/card-041.png")} alt="" />
       </div>
       <span className="hero-token core-token">CORE</span>
       <span className="hero-token taste-token">TASTE</span>
@@ -186,7 +187,7 @@ function SiteHeader() {
   return (
     <nav className="site-header" aria-label="Playground navigation">
       <div className="site-brand">
-        <img src="/brand/wol-logo.png" alt="Wizards of Learning" />
+        <img src={assetPath("brand/wol-logo.png")} alt="Wizards of Learning" />
         <div>
           <span>Wizards of Learning</span>
           <strong>Game Design Lab</strong>
@@ -399,7 +400,7 @@ function MechanicSection({ title, description, filters, selectedMechanic, onSele
             onClick={() => onSelect(filter.id)}
           >
             <div className="card-thumb">
-              <img src={`/wizard-cards/${filter.card}`} alt="" />
+              <img src={assetPath(`wizard-cards/${filter.card}`)} alt="" />
             </div>
             <div className="mechanic-card-copy">
               <span>{filter.shortLabel ?? filter.label}</span>
