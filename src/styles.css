@@ -50,6 +50,10 @@ button {
   cursor: pointer;
 }
 
+button {
+  appearance: none;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -76,6 +80,10 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
 
 .site-brand img {
@@ -106,19 +114,27 @@ button {
   gap: 8px;
 }
 
-.site-links a {
+.site-links a,
+.site-links button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 11px 15px;
+  border: 0;
   color: #34415a;
   border-radius: 999px;
+  background: transparent;
   text-decoration: none;
   font-size: 0.92rem;
   font-weight: 900;
 }
 
 .site-links a:hover,
-.site-links a.active {
+.site-links a.active,
+.site-links button:hover,
+.site-links button.active {
   color: #fff;
-  background: #214796;
+  background: var(--blue);
 }
 
 .workspace {
@@ -127,32 +143,56 @@ button {
   padding: 22px 22px 44px;
 }
 
-.topbar {
+.hero-section {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px auto;
+  grid-template-columns: minmax(0, 1fr) 300px;
   align-items: flex-start;
   gap: 24px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 94% 8%, rgba(80, 194, 192, 0.28), transparent 30%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(244, 251, 251, 0.88));
+  box-shadow: var(--shadow);
 }
 
-.topbar h1,
+.hero-copy {
+  min-width: 0;
+}
+
+.hero-mark {
+  display: inline-flex;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  color: var(--blue-deep);
+  border: 1px solid rgba(80, 194, 192, 0.42);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 950;
+}
+
+.hero-section h1,
 .section-heading h2,
 .detail-title h2,
 .moment-card strong,
-.mechanic-section-title h3 {
+.mechanic-section-title h3,
+.challenge-copy h2 {
   font-family: "Kanit", "Bai Jamjuree", "Noto Sans Thai", sans-serif;
   letter-spacing: 0;
 }
 
-.topbar h1 {
+.hero-section h1 {
   margin: 0;
   color: #0f1d3a;
-  font-size: clamp(3.1rem, 7vw, 6.7rem);
-  line-height: 0.95;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.45rem, 5.6vw, 5.6rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
 }
 
-.topbar p {
+.hero-section p {
   max-width: 720px;
   margin: 12px 0 0;
   color: var(--muted);
@@ -161,10 +201,40 @@ button {
   line-height: 1.75;
 }
 
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.hero-actions button,
+.hero-actions a,
+.challenge-panel > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--ink);
+  border: 0;
+  border-radius: 999px;
+  background: var(--orange);
+  text-decoration: none;
+  font-weight: 950;
+}
+
+.hero-actions a {
+  color: var(--blue-deep);
+  border: 1px solid rgba(80, 194, 192, 0.36);
+  background: #fff;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  grid-column: 1 / -1;
 }
 
 .hero-visual {
@@ -298,7 +368,7 @@ select {
 
 .mode-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -313,6 +383,7 @@ select {
   border: 1px solid var(--line);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.84);
+  text-align: left;
 }
 
 .mode-card.active {
@@ -443,14 +514,17 @@ select {
 
 .explorer-panel,
 .detail-panel,
-.mechanic-map {
+.mechanic-map,
+.gallery-panel,
+.challenge-panel {
   border: 1px solid var(--line);
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--shadow);
 }
 
-.explorer-panel {
+.explorer-panel,
+.gallery-panel {
   min-width: 0;
   padding: 18px;
   overflow: hidden;
@@ -614,6 +688,8 @@ select {
   gap: 8px;
   color: #fff;
   font-weight: 950;
+  padding: 22px;
+  text-align: center;
 }
 
 .game-box-art.pending::after {
@@ -627,10 +703,24 @@ select {
 }
 
 .game-box-art.pending svg,
-.game-box-art.pending span {
+.game-box-art.pending span,
+.game-box-art.pending strong {
   position: relative;
   z-index: 1;
   color: var(--navy);
+}
+
+.game-box-art.pending strong {
+  max-width: 210px;
+  font-family: "Kanit", "Bai Jamjuree", sans-serif;
+  font-size: 1.35rem;
+  line-height: 1.05;
+}
+
+.game-box-art.pending span {
+  display: block;
+  font-size: 0.74rem;
+  text-transform: uppercase;
 }
 
 .game-box-art.pending.lane-spiel {
@@ -722,6 +812,120 @@ select {
   max-height: calc(100vh - 48px);
   padding: 18px;
   overflow: auto;
+}
+
+.gallery-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  gap: 16px;
+  align-items: start;
+}
+
+.box-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: 16px;
+}
+
+.box-gallery-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: #fff;
+  text-align: left;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.box-gallery-card:hover,
+.box-gallery-card.selected {
+  transform: translateY(-3px);
+  border-color: var(--blue);
+  box-shadow: 0 18px 34px rgba(23, 40, 75, 0.14);
+}
+
+.box-gallery-card.selected {
+  outline: 2px solid rgba(254, 197, 102, 0.72);
+}
+
+.box-gallery-card .game-box-art {
+  min-height: 220px;
+  margin: 0;
+}
+
+.award-badge {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  z-index: 3;
+  padding: 7px 10px;
+  color: #fff;
+  border-radius: 999px;
+  background: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 950;
+  box-shadow: 0 8px 16px rgba(23, 40, 75, 0.12);
+}
+
+.award-badge.spiel-red {
+  background: var(--prize-red);
+}
+
+.award-badge.kenner-black {
+  background: var(--prize-black);
+}
+
+.award-badge.kinder-blue {
+  background: var(--prize-blue);
+}
+
+.box-gallery-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.box-gallery-copy span,
+.source-card span {
+  color: var(--blue-deep);
+  font-size: 0.7rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.box-gallery-copy strong {
+  font-family: "Kanit", "Bai Jamjuree", sans-serif;
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.box-gallery-copy em {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.cover-status {
+  align-self: flex-start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.cover-status.verified {
+  color: #0f6b52;
+  background: #def6ec;
+}
+
+.cover-status.review {
+  color: #8b5b04;
+  background: var(--orange-soft);
 }
 
 .detail-ribbon {
@@ -888,9 +1092,57 @@ select {
   line-height: 1.4;
 }
 
+.source-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--paper-soft);
+}
+
+.source-card a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--blue-deep);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.source-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 .mechanic-map {
   margin-top: 16px;
   padding: 18px;
+}
+
+.full-map {
+  margin-top: 0;
+}
+
+.pattern-preview .section-heading {
+  margin-bottom: 8px;
+}
+
+.open-lab {
+  margin-bottom: 16px;
+}
+
+.pattern-preview .mechanic-image-card {
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  min-height: 134px;
+}
+
+.pattern-preview .card-thumb {
+  width: 88px;
+  height: 120px;
 }
 
 .sort-control {
@@ -1042,12 +1294,111 @@ select {
   font-size: 1.05rem;
 }
 
+.challenge-panel {
+  display: grid;
+  gap: 20px;
+  padding: 28px;
+}
+
+.challenge-copy span {
+  color: var(--blue-deep);
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.challenge-copy h2 {
+  max-width: 760px;
+  margin: 8px 0 0;
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 1;
+}
+
+.challenge-copy p {
+  max-width: 760px;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.challenge-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.challenge-steps article {
+  min-height: 190px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: #fff;
+}
+
+.challenge-steps article > span {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 14px;
+  color: var(--ink);
+  border-radius: 999px;
+  background: var(--orange);
+  font-weight: 950;
+}
+
+.challenge-steps strong {
+  display: block;
+  font-family: "Kanit", "Bai Jamjuree", sans-serif;
+  font-size: 1.2rem;
+}
+
+.challenge-steps p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.source-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(80, 194, 192, 0.28);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.source-footer div,
+.source-footer a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-footer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.source-footer a {
+  flex: 0 0 auto;
+  color: var(--blue-deep);
+  font-size: 0.86rem;
+  font-weight: 950;
+  text-decoration: none;
+}
+
 @media (max-width: 1180px) {
   .workspace {
     padding: 20px;
   }
 
-  .topbar {
+  .hero-section {
     grid-template-columns: minmax(0, 1fr) 280px;
   }
 
@@ -1061,8 +1412,13 @@ select {
     width: auto;
   }
 
-  .main-grid {
+  .main-grid,
+  .gallery-layout {
     grid-template-columns: 1fr;
+  }
+
+  .mode-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .detail-panel {
@@ -1093,7 +1449,7 @@ select {
     flex-wrap: wrap;
   }
 
-  .topbar,
+  .hero-section,
   .control-band,
   .section-heading {
     display: flex;
@@ -1108,6 +1464,16 @@ select {
   .topbar-actions,
   .mode-strip {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions,
+  .source-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .challenge-steps {
     grid-template-columns: 1fr;
   }
 

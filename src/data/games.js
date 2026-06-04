@@ -849,4 +849,16 @@ export const games = [
   },
 ];
 
+games.forEach((game) => {
+  const bggQuery = encodeURIComponent(game.title.replace(" / ", " "));
+  Object.assign(game, {
+    bggQuery: game.title,
+    coverImage: "",
+    coverThumbnail: "",
+    coverCredit: "BoardGameGeek search reference",
+    coverSourceUrl: `https://boardgamegeek.com/geeksearch.php?action=search&q=${bggQuery}`,
+    coverStatus: "needs_review",
+  });
+});
+
 export const years = Array.from(new Set(games.map((game) => game.year))).sort();
