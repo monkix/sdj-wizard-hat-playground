@@ -876,12 +876,17 @@ const KNOWN_BGG_IDS = {
 };
 
 games.forEach((game) => {
+  const bggId = KNOWN_BGG_IDS[game.id] || null;
   const bggQuery = encodeURIComponent(game.title.replace(" / ", " "));
   Object.assign(game, {
-    bggId: KNOWN_BGG_IDS[game.id] || null,
+    bggId,
     bggQuery: game.title,
-    coverImage: "",
-    coverSourceUrl: `https://boardgamegeek.com/geeksearch.php?action=search&q=${bggQuery}`,
+    // Static path served from public/covers/ (downloaded by CI script)
+    coverImage: bggId ? `covers/${game.id}.jpg` : "",
+    // Direct BGG game page for known IDs, search for the rest
+    coverSourceUrl: bggId
+      ? `https://boardgamegeek.com/boardgame/${bggId}`
+      : `https://boardgamegeek.com/geeksearch.php?action=search&q=${bggQuery}`,
   });
 });
 
