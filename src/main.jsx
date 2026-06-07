@@ -95,15 +95,16 @@ function useBGGThumbnails(games) {
 
   useEffect(() => {
     if (fetchingRef.current) return;
-    // Skip games that already have a static cover image (downloaded by CI)
-    const missing = games.filter((g) => !g.coverImage && !(g.id in thumbnails));
+    // Fetch thumbnails for ALL games as a fallback — even those with a static coverImage path,
+    // because if CI failed to download the image the <img> will 404 and we need a fallback URL.
+    const missing = games.filter((g) => !(g.id in thumbnails));
     if (!missing.length) return;
 
     fetchingRef.current = true;
     let cancelled = false;
 
     (async () => {
-      // Only search for games without a known BGG ID (CI didn't download their image)
+      // Search BGG for all missing games, 2 at a time
       for (let i = 0; i < missing.length && !cancelled; i += 2) {
         const slice = missing.slice(i, i + 2);
         await Promise.all(
