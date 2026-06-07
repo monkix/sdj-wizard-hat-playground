@@ -26,7 +26,19 @@ const defaultGameId = "sky-team-2024";
 // ---- BGG image fetching ----
 
 const BGGContext = React.createContext({});
-const BGG_CACHE_KEY = "bgg-thumbnails-v1";
+// v2: bumped to clear any v1 cache that stored failed (empty) results
+const BGG_CACHE_KEY = "bgg-thumbnails-v2";
+
+// BGG XML API2 doesn't send CORS headers, so we route through a public proxy.
+// allorigins.win /raw returns the response body as-is.
+const BGG_PROXY = "https://api.allorigins.win/raw?url=";
+
+function bggFetch(url) {
+  return fetch(BGG_PROXY + encodeURIComponent(url)).then((r) => {
+    if (!r.ok) throw new Error(`proxy ${r.status}`);
+    return r.text();
+  });
+}
 
 function parseBGGSearchId(xml, year) {
   const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
@@ -51,19 +63,19 @@ function parseBGGThumbnail(xml) {
 
 async function fetchBGGImage(game) {
   const q = encodeURIComponent((game.bggQuery || game.title).replace(/ \/ /g, " "));
-  const searchXml = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${q}&type=boardgame`).then((r) => r.text());
+  const searchXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/search?query=${q}&type=boardgame`);
 
   const bggId = parseBGGSearchId(searchXml, game.year);
   if (!bggId) return null;
 
-  await new Promise((r) => setTimeout(r, 1000));
+  await new Promise((r) => setTimeout(r, 800));
 
-  let thingXml = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`).then((r) => r.text());
+  let thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`);
 
-  // BGG returns 202 + empty body on first request — retry once
+  // BGG sometimes queues the request and returns empty body — retry once
   if (!thingXml.includes("<thumbnail>")) {
-    await new Promise((r) => setTimeout(r, 3500));
-    thingXml = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`).then((r) => r.text());
+    await new Promise((r) => setTimeout(r, 3000));
+    thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`);
   }
 
   return parseBGGThumbnail(thingXml);
@@ -88,25 +100,33 @@ function useBGGThumbnails(games) {
     let cancelled = false;
 
     (async () => {
-      for (const game of missing) {
-        if (cancelled) break;
-        try {
-          const thumb = await fetchBGGImage(game);
-          if (!cancelled) {
-            setThumbnails((prev) => {
-              const next = { ...prev, [game.id]: thumb || "" };
-              try {
-                localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next));
-              } catch {}
-              return next;
-            });
-          }
-        } catch {
-          if (!cancelled) {
-            setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
-          }
+      // Process 2 games in parallel to speed things up without hammering BGG
+      const BATCH = 2;
+      for (let i = 0; i < missing.length && !cancelled; i += BATCH) {
+        const batch = missing.slice(i, i + BATCH);
+        await Promise.all(
+          batch.map(async (game) => {
+            try {
+              const thumb = await fetchBGGImage(game);
+              if (!cancelled) {
+                setThumbnails((prev) => {
+                  const next = { ...prev, [game.id]: thumb || "" };
+                  try {
+                    localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next));
+                  } catch {}
+                  return next;
+                });
+              }
+            } catch {
+              if (!cancelled) {
+                setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
+              }
+            }
+          })
+        );
+        if (!cancelled && i + BATCH < missing.length) {
+          await new Promise((r) => setTimeout(r, 1000));
         }
-        if (!cancelled) await new Promise((r) => setTimeout(r, 1500));
       }
       fetchingRef.current = false;
     })();
