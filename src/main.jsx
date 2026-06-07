@@ -26,11 +26,10 @@ const defaultGameId = "sky-team-2024";
 // ---- BGG image fetching ----
 
 const BGGContext = React.createContext({});
-// v2: bumped to clear any v1 cache that stored failed (empty) results
-const BGG_CACHE_KEY = "bgg-thumbnails-v2";
+// v3: batch-fetch strategy (pre-populated BGG IDs → single request)
+const BGG_CACHE_KEY = "bgg-thumbnails-v3";
 
-// BGG XML API2 doesn't send CORS headers, so we route through a public proxy.
-// allorigins.win /raw returns the response body as-is.
+// BGG XML API2 lacks CORS headers; route through a public proxy.
 const BGG_PROXY = "https://api.allorigins.win/raw?url=";
 
 function bggFetch(url) {
@@ -40,45 +39,69 @@ function bggFetch(url) {
   });
 }
 
-function parseBGGSearchId(xml, year) {
+// Parse every <item> in a BGG thing response → { bggId: thumbnailUrl }
+function parseBGGThingXml(xml) {
+  const result = {};
   const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
   let m;
-  const candidates = [];
   while ((m = itemRe.exec(xml)) !== null) {
-    const id = m[1];
-    const yearM = m[2].match(/yearpublished[^>]+value="(\d+)"/);
-    candidates.push({ id, yearPub: yearM ? parseInt(yearM[1]) : 0 });
+    const bggId = m[1];
+    const thumbM = m[2].match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
+    if (thumbM) {
+      const u = thumbM[1].trim();
+      result[bggId] = u.startsWith("//") ? `https:${u}` : u;
+    }
   }
-  if (!candidates.length) return null;
-  const exact = candidates.find((c) => c.yearPub === year);
-  return (exact || candidates[0]).id;
+  return result;
 }
 
-function parseBGGThumbnail(xml) {
-  const m = xml.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
-  if (!m) return null;
-  const url = m[1].trim();
-  return url.startsWith("//") ? `https:${url}` : url || null;
+// Fetch thumbnails for a list of known BGG IDs in one request.
+async function batchFetchByBggIds(idPairs) {
+  // idPairs: [{ gameId, bggId }]
+  const ids = idPairs.map((p) => p.bggId).join(",");
+  const url = `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame`;
+  let xml = await bggFetch(url);
+
+  // BGG sometimes queues the request; retry once after a short wait
+  if (!xml.includes("<thumbnail>")) {
+    await new Promise((r) => setTimeout(r, 3500));
+    xml = await bggFetch(url);
+  }
+
+  const byBggId = parseBGGThingXml(xml);
+  const result = {};
+  for (const { gameId, bggId } of idPairs) {
+    result[gameId] = byBggId[bggId] || "";
+  }
+  return result;
 }
 
-async function fetchBGGImage(game) {
+// Search BGG by title, then fetch thumbnail from the best-matching result.
+async function searchAndFetch(game) {
   const q = encodeURIComponent((game.bggQuery || game.title).replace(/ \/ /g, " "));
   const searchXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/search?query=${q}&type=boardgame`);
 
-  const bggId = parseBGGSearchId(searchXml, game.year);
-  if (!bggId) return null;
+  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
+  const candidates = [];
+  let m;
+  while ((m = itemRe.exec(searchXml)) !== null) {
+    const yearM = m[2].match(/yearpublished[^>]+value="(\d+)"/);
+    candidates.push({ id: m[1], yearPub: yearM ? parseInt(yearM[1]) : 0 });
+  }
+  if (!candidates.length) return "";
+
+  const best = candidates.find((c) => c.yearPub === game.year) || candidates[0];
 
   await new Promise((r) => setTimeout(r, 800));
 
-  let thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`);
-
-  // BGG sometimes queues the request and returns empty body — retry once
+  let thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${best.id}&type=boardgame`);
   if (!thingXml.includes("<thumbnail>")) {
     await new Promise((r) => setTimeout(r, 3000));
-    thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`);
+    thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${best.id}&type=boardgame`);
   }
 
-  return parseBGGThumbnail(thingXml);
+  const byId = parseBGGThingXml(thingXml);
+  return byId[best.id] || "";
 }
 
 function useBGGThumbnails(games) {
@@ -100,40 +123,57 @@ function useBGGThumbnails(games) {
     let cancelled = false;
 
     (async () => {
-      // Process 2 games in parallel to speed things up without hammering BGG
-      const BATCH = 2;
-      for (let i = 0; i < missing.length && !cancelled; i += BATCH) {
-        const batch = missing.slice(i, i + BATCH);
+      // Phase 1: batch-fetch all games with pre-populated BGG IDs (1 request)
+      const withId = missing.filter((g) => g.bggId).map((g) => ({ gameId: g.id, bggId: g.bggId }));
+      if (withId.length && !cancelled) {
+        try {
+          const batch = await batchFetchByBggIds(withId);
+          if (!cancelled) {
+            setThumbnails((prev) => {
+              const next = { ...prev, ...batch };
+              try { localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next)); } catch {}
+              return next;
+            });
+          }
+        } catch {
+          // mark as empty so they don't retry on next render
+          if (!cancelled) {
+            setThumbnails((prev) => {
+              const next = { ...prev };
+              for (const { gameId } of withId) next[gameId] = "";
+              return next;
+            });
+          }
+        }
+      }
+
+      // Phase 2: search for remaining games (no pre-populated ID), 2 at a time
+      const withoutId = missing.filter((g) => !g.bggId);
+      for (let i = 0; i < withoutId.length && !cancelled; i += 2) {
+        const slice = withoutId.slice(i, i + 2);
         await Promise.all(
-          batch.map(async (game) => {
+          slice.map(async (game) => {
             try {
-              const thumb = await fetchBGGImage(game);
+              const thumb = await searchAndFetch(game);
               if (!cancelled) {
                 setThumbnails((prev) => {
-                  const next = { ...prev, [game.id]: thumb || "" };
-                  try {
-                    localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next));
-                  } catch {}
+                  const next = { ...prev, [game.id]: thumb };
+                  try { localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next)); } catch {}
                   return next;
                 });
               }
             } catch {
-              if (!cancelled) {
-                setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
-              }
+              if (!cancelled) setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
             }
           })
         );
-        if (!cancelled && i + BATCH < missing.length) {
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+        if (!cancelled && i + 2 < withoutId.length) await new Promise((r) => setTimeout(r, 1000));
       }
+
       fetchingRef.current = false;
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return thumbnails;
