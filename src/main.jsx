@@ -1,4 +1,4 @@
-import React, { useContext, useDeferredValue, useEffect, useRef, useState } from "react";
+import React, { useDeferredValue, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
@@ -22,118 +22,6 @@ import { awardLanes, coreMechanicFilters, games, tasteMechanicFilters, years } f
 import "./styles.css";
 
 const defaultGameId = "sky-team-2024";
-
-// ---- BGG image fetching ----
-
-const BGGContext = React.createContext({});
-// v3: batch-fetch strategy (pre-populated BGG IDs → single request)
-const BGG_CACHE_KEY = "bgg-thumbnails-v3";
-
-// BGG XML API2 lacks CORS headers; route through a public proxy.
-const BGG_PROXY = "https://api.allorigins.win/raw?url=";
-
-function bggFetch(url) {
-  return fetch(BGG_PROXY + encodeURIComponent(url)).then((r) => {
-    if (!r.ok) throw new Error(`proxy ${r.status}`);
-    return r.text();
-  });
-}
-
-// Parse every <item> in a BGG thing response → { bggId: thumbnailUrl }
-function parseBGGThingXml(xml) {
-  const result = {};
-  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
-  let m;
-  while ((m = itemRe.exec(xml)) !== null) {
-    const bggId = m[1];
-    const thumbM = m[2].match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
-    if (thumbM) {
-      const u = thumbM[1].trim();
-      result[bggId] = u.startsWith("//") ? `https:${u}` : u;
-    }
-  }
-  return result;
-}
-
-// Search BGG by title, then fetch thumbnail from the best-matching result.
-async function searchAndFetch(game) {
-  const q = encodeURIComponent((game.bggQuery || game.title).replace(/ \/ /g, " "));
-  const searchXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/search?query=${q}&type=boardgame`);
-
-  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
-  const candidates = [];
-  let m;
-  while ((m = itemRe.exec(searchXml)) !== null) {
-    const yearM = m[2].match(/yearpublished[^>]+value="(\d+)"/);
-    candidates.push({ id: m[1], yearPub: yearM ? parseInt(yearM[1]) : 0 });
-  }
-  if (!candidates.length) return "";
-
-  const best = candidates.find((c) => c.yearPub === game.year) || candidates[0];
-
-  await new Promise((r) => setTimeout(r, 800));
-
-  let thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${best.id}&type=boardgame`);
-  if (!thingXml.includes("<thumbnail>")) {
-    await new Promise((r) => setTimeout(r, 3000));
-    thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${best.id}&type=boardgame`);
-  }
-
-  const byId = parseBGGThingXml(thingXml);
-  return byId[best.id] || "";
-}
-
-function useBGGThumbnails(games) {
-  const [thumbnails, setThumbnails] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(BGG_CACHE_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  });
-  const fetchingRef = useRef(false);
-
-  useEffect(() => {
-    if (fetchingRef.current) return;
-    // Fetch thumbnails for ALL games as a fallback — even those with a static coverImage path,
-    // because if CI failed to download the image the <img> will 404 and we need a fallback URL.
-    const missing = games.filter((g) => !(g.id in thumbnails));
-    if (!missing.length) return;
-
-    fetchingRef.current = true;
-    let cancelled = false;
-
-    (async () => {
-      // Search BGG for all missing games, 2 at a time
-      for (let i = 0; i < missing.length && !cancelled; i += 2) {
-        const slice = missing.slice(i, i + 2);
-        await Promise.all(
-          slice.map(async (game) => {
-            try {
-              const thumb = await searchAndFetch(game);
-              if (!cancelled) {
-                setThumbnails((prev) => {
-                  const next = { ...prev, [game.id]: thumb };
-                  try { localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next)); } catch {}
-                  return next;
-                });
-              }
-            } catch {
-              if (!cancelled) setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
-            }
-          })
-        );
-        if (!cancelled && i + 2 < missing.length) await new Promise((r) => setTimeout(r, 1000));
-      }
-
-      fetchingRef.current = false;
-    })();
-
-    return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return thumbnails;
-}
 const wizardHatUrl = "https://wizardsoflearning.com/wizards-hat-board-game-design-tools/";
 const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
 
@@ -145,7 +33,6 @@ const modules = [
 ];
 
 function App() {
-  const bggThumbnails = useBGGThumbnails(games);
   const [activeModule, setActiveModule] = useState("explore");
   const [selectedGameId, setSelectedGameId] = useState(defaultGameId);
   const [selectedLane, setSelectedLane] = useState("all");
@@ -198,7 +85,6 @@ function App() {
   }
 
   return (
-    <BGGContext.Provider value={bggThumbnails}>
     <div className="app-shell">
       <main className="workspace">
         <SiteHeader activeModule={activeModule} onModuleChange={setActiveModule} />
@@ -266,7 +152,6 @@ function App() {
         <SourceFooter />
       </main>
     </div>
-    </BGGContext.Provider>
   );
 }
 
@@ -503,39 +388,11 @@ function GalleryView({ visibleGames, selectedGame, selectedGameId, onSelectGame,
 }
 
 function GameBoxArt({ game, compact = false }) {
-  const thumbnails = useContext(BGGContext);
-  const [imgError, setImgError] = useState(false);
-
-  // Prefer static CI-downloaded image; fall back to runtime-fetched thumbnail
-  const rawSrc = (!imgError && game.coverImage) ? game.coverImage : (thumbnails[game.id] || "");
-  // Apply base URL for relative paths (static assets under public/)
-  const src = rawSrc && !rawSrc.startsWith("http") ? assetPath(rawSrc) : rawSrc;
-
-  const isLoading = !game.coverImage && !(game.id in thumbnails);
-
-  if (src) {
-    return (
-      <div className={`game-box-art ${compact ? "compact" : ""}`}>
-        <img
-          src={src}
-          alt={`${game.title} box cover`}
-          loading="lazy"
-          onError={() => setImgError(true)}
-        />
-      </div>
-    );
-  }
-
   const Icon = getVerbIcon(game);
   return (
-    <div className={`game-box-art pending ${isLoading ? "loading" : ""} ${compact ? "compact" : ""} lane-${game.lane}`}>
+    <div className={`game-box-art pending ${compact ? "compact" : ""} lane-${game.lane}`}>
       <Icon size={compact ? 17 : 32} />
-      {!compact && (
-        <>
-          <strong>{game.title}</strong>
-          <span>{isLoading ? "กำลังโหลดรูป…" : "ไม่พบรูป"}</span>
-        </>
-      )}
+      {!compact && <strong>{game.title}</strong>}
     </div>
   );
 }
@@ -550,24 +407,17 @@ function AwardBadge({ game }) {
 }
 
 function CoverStatus({ game }) {
-  const thumbnails = useContext(BGGContext);
-  const hasCover = game.coverImage || thumbnails[game.id];
-  const isSearching = !game.coverImage && !(game.id in thumbnails);
-  if (isSearching) return <span className="cover-status loading">โหลดรูป…</span>;
-  if (hasCover) {
-    return (
-      <a
-        className="cover-status verified"
-        href={game.coverSourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        onClick={(e) => e.stopPropagation()}
-      >
-        ดูบน BGG ↗
-      </a>
-    );
-  }
-  return <span className="cover-status review">ไม่พบรูป</span>;
+  return (
+    <a
+      className="cover-status review"
+      href={game.coverSourceUrl}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+    >
+      ดูบน BGG ↗
+    </a>
+  );
 }
 
 function getVerbIcon(game) {
