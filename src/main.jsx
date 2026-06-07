@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useState } from "react";
+import React, { useContext, useDeferredValue, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
@@ -22,6 +22,102 @@ import { awardLanes, coreMechanicFilters, games, tasteMechanicFilters, years } f
 import "./styles.css";
 
 const defaultGameId = "sky-team-2024";
+
+// ---- BGG image fetching ----
+
+const BGGContext = React.createContext({});
+const BGG_CACHE_KEY = "bgg-thumbnails-v1";
+
+function parseBGGSearchId(xml, year) {
+  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
+  let m;
+  const candidates = [];
+  while ((m = itemRe.exec(xml)) !== null) {
+    const id = m[1];
+    const yearM = m[2].match(/yearpublished[^>]+value="(\d+)"/);
+    candidates.push({ id, yearPub: yearM ? parseInt(yearM[1]) : 0 });
+  }
+  if (!candidates.length) return null;
+  const exact = candidates.find((c) => c.yearPub === year);
+  return (exact || candidates[0]).id;
+}
+
+function parseBGGThumbnail(xml) {
+  const m = xml.match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
+  if (!m) return null;
+  const url = m[1].trim();
+  return url.startsWith("//") ? `https:${url}` : url || null;
+}
+
+async function fetchBGGImage(game) {
+  const q = encodeURIComponent((game.bggQuery || game.title).replace(/ \/ /g, " "));
+  const searchXml = await fetch(`https://boardgamegeek.com/xmlapi2/search?query=${q}&type=boardgame`).then((r) => r.text());
+
+  const bggId = parseBGGSearchId(searchXml, game.year);
+  if (!bggId) return null;
+
+  await new Promise((r) => setTimeout(r, 1000));
+
+  let thingXml = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`).then((r) => r.text());
+
+  // BGG returns 202 + empty body on first request — retry once
+  if (!thingXml.includes("<thumbnail>")) {
+    await new Promise((r) => setTimeout(r, 3500));
+    thingXml = await fetch(`https://boardgamegeek.com/xmlapi2/thing?id=${bggId}&type=boardgame`).then((r) => r.text());
+  }
+
+  return parseBGGThumbnail(thingXml);
+}
+
+function useBGGThumbnails(games) {
+  const [thumbnails, setThumbnails] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(BGG_CACHE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const fetchingRef = useRef(false);
+
+  useEffect(() => {
+    if (fetchingRef.current) return;
+    const missing = games.filter((g) => !(g.id in thumbnails));
+    if (!missing.length) return;
+
+    fetchingRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      for (const game of missing) {
+        if (cancelled) break;
+        try {
+          const thumb = await fetchBGGImage(game);
+          if (!cancelled) {
+            setThumbnails((prev) => {
+              const next = { ...prev, [game.id]: thumb || "" };
+              try {
+                localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next));
+              } catch {}
+              return next;
+            });
+          }
+        } catch {
+          if (!cancelled) {
+            setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
+          }
+        }
+        if (!cancelled) await new Promise((r) => setTimeout(r, 1500));
+      }
+      fetchingRef.current = false;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return thumbnails;
+}
 const wizardHatUrl = "https://wizardsoflearning.com/wizards-hat-board-game-design-tools/";
 const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
 
@@ -33,6 +129,7 @@ const modules = [
 ];
 
 function App() {
+  const bggThumbnails = useBGGThumbnails(games);
   const [activeModule, setActiveModule] = useState("explore");
   const [selectedGameId, setSelectedGameId] = useState(defaultGameId);
   const [selectedLane, setSelectedLane] = useState("all");
@@ -85,6 +182,7 @@ function App() {
   }
 
   return (
+    <BGGContext.Provider value={bggThumbnails}>
     <div className="app-shell">
       <main className="workspace">
         <SiteHeader activeModule={activeModule} onModuleChange={setActiveModule} />
@@ -152,6 +250,7 @@ function App() {
         <SourceFooter />
       </main>
     </div>
+    </BGGContext.Provider>
   );
 }
 
@@ -388,22 +487,26 @@ function GalleryView({ visibleGames, selectedGame, selectedGameId, onSelectGame,
 }
 
 function GameBoxArt({ game, compact = false }) {
-  if (game.coverImage) {
+  const thumbnails = useContext(BGGContext);
+  const coverImage = game.coverImage || thumbnails[game.id] || "";
+  const isLoading = !(game.id in thumbnails) && !game.coverImage;
+
+  if (coverImage) {
     return (
       <div className={`game-box-art ${compact ? "compact" : ""}`}>
-        <img src={game.coverImage} alt={`${game.title} box cover`} loading="lazy" />
+        <img src={coverImage} alt={`${game.title} box cover`} loading="lazy" />
       </div>
     );
   }
 
   const Icon = getVerbIcon(game);
   return (
-    <div className={`game-box-art pending ${compact ? "compact" : ""} lane-${game.lane}`}>
+    <div className={`game-box-art pending ${isLoading ? "loading" : ""} ${compact ? "compact" : ""} lane-${game.lane}`}>
       <Icon size={compact ? 17 : 32} />
       {!compact && (
         <>
           <strong>{game.title}</strong>
-          <span>cover pending</span>
+          <span>{isLoading ? "กำลังโหลดรูป…" : "ไม่พบรูป"}</span>
         </>
       )}
     </div>
@@ -420,10 +523,13 @@ function AwardBadge({ game }) {
 }
 
 function CoverStatus({ game }) {
-  const verified = game.coverStatus === "verified";
+  const thumbnails = useContext(BGGContext);
+  const hasCover = game.coverImage || thumbnails[game.id];
+  const isLoading = !(game.id in thumbnails) && !game.coverImage;
+  if (isLoading) return <span className="cover-status loading">โหลดรูป…</span>;
   return (
-    <span className={`cover-status ${verified ? "verified" : "review"}`}>
-      {verified ? "cover verified" : "cover needs review"}
+    <span className={`cover-status ${hasCover ? "verified" : "review"}`}>
+      {hasCover ? "BGG cover" : "ไม่พบรูป"}
     </span>
   );
 }

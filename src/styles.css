@@ -928,6 +928,21 @@ select {
   background: var(--orange-soft);
 }
 
+.cover-status.loading {
+  color: #555;
+  background: #eee;
+  animation: bgg-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes bgg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.game-box-art.pending.loading::after {
+  animation: bgg-pulse 1.4s ease-in-out infinite;
+}
+
 .detail-ribbon {
   display: flex;
   align-items: center;
