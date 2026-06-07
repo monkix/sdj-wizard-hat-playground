@@ -1,8 +1,6 @@
 /**
  * Downloads BGG thumbnail images to public/covers/{gameId}.jpg
  * Run automatically by GitHub Actions before the Vite build.
- *
- * Uses only Node.js built-ins — no npm install needed.
  */
 
 import https from "node:https";
@@ -41,8 +39,10 @@ const GAME_BGG_IDS = {
 function get(url) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith("https") ? https : http;
-    mod
-      .get(url, { headers: { "User-Agent": "sdj-wizard-hat-playground/1.0 (build script)" } }, (res) => {
+    const req = mod.get(
+      url,
+      { headers: { "User-Agent": "sdj-wizard-hat-playground/1.0 (build)" } },
+      (res) => {
         if (res.statusCode === 301 || res.statusCode === 302) {
           return get(res.headers.location).then(resolve).catch(reject);
         }
@@ -50,57 +50,89 @@ function get(url) {
         res.on("data", (c) => chunks.push(c));
         res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(chunks) }));
         res.on("error", reject);
-      })
-      .on("error", reject);
+      }
+    );
+    req.setTimeout(20000, () => { req.destroy(new Error("timeout")); });
+    req.on("error", reject);
   });
 }
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function parseThumbnails(xml) {
+  const result = {};
+  const re = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
+  let m;
+  while ((m = re.exec(xml)) !== null) {
+    const tM = m[2].match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
+    if (tM) {
+      const u = tM[1].trim();
+      result[m[1]] = u.startsWith("//") ? `https:${u}` : u;
+    }
+  }
+  return result;
+}
+
+// Fetch BGG thing XML for a comma-separated list of IDs, retrying until thumbnails appear.
+async function fetchBGGThing(idsStr, label = idsStr) {
+  const url = `https://boardgamegeek.com/xmlapi2/thing?id=${idsStr}&type=boardgame`;
+  const waits = [5, 8, 12, 18, 25, 35]; // seconds between attempts
+
+  for (let i = 0; i <= waits.length; i++) {
+    const { body } = await get(url);
+    const xml = body.toString("utf8");
+
+    const thumbs = parseThumbnails(xml);
+    if (Object.keys(thumbs).length > 0) return thumbs;
+
+    if (i === 0) {
+      // Log the raw response on first empty reply to help debug
+      console.log(`    [debug] response preview: ${xml.substring(0, 200).replace(/\n/g, " ")}`);
+    }
+
+    if (i < waits.length) {
+      console.log(`    attempt ${i + 1}: no thumbnails for ${label} — waiting ${waits[i]}s…`);
+      await sleep(waits[i] * 1000);
+    }
+  }
+  return {};
 }
 
 async function main() {
   await fs.mkdir(OUT_DIR, { recursive: true });
 
-  const ids = Object.values(GAME_BGG_IDS).join(",");
-  console.log(`Fetching BGG data for ${Object.keys(GAME_BGG_IDS).length} games (batch)…`);
+  const entries = Object.entries(GAME_BGG_IDS);
+  const allBggIds = entries.map(([, id]) => id);
 
-  let { body: xmlBuf } = await get(
-    `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame`
-  );
-  let xml = xmlBuf.toString("utf8");
+  console.log(`\nStep 1: batch-fetch all ${entries.length} games…`);
+  let thumbByBggId = await fetchBGGThing(allBggIds.join(","), "batch");
+  console.log(`  found ${Object.keys(thumbByBggId).length} thumbnails in batch response`);
 
-  if (!xml.includes("<thumbnail>")) {
-    console.log("BGG queued the request — waiting 5 s then retrying…");
-    await sleep(5000);
-    ({ body: xmlBuf } = await get(
-      `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame`
-    ));
-    xml = xmlBuf.toString("utf8");
-  }
-
-  // Parse bggId → thumbnail URL
-  const thumbByBggId = {};
-  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
-  let m;
-  while ((m = itemRe.exec(xml)) !== null) {
-    const bggId = m[1];
-    const tM = m[2].match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
-    if (tM) {
-      const u = tM[1].trim();
-      thumbByBggId[bggId] = u.startsWith("//") ? `https:${u}` : u;
+  // For games not found in batch, try individual requests
+  const missing = entries.filter(([, bggId]) => !thumbByBggId[bggId]);
+  if (missing.length > 0) {
+    console.log(`\nStep 2: individual requests for ${missing.length} missing games…`);
+    for (const [gameId, bggId] of missing) {
+      process.stdout.write(`  ${gameId}… `);
+      const single = await fetchBGGThing(bggId, gameId);
+      if (single[bggId]) {
+        thumbByBggId[bggId] = single[bggId];
+        console.log("found");
+      } else {
+        console.log("still empty");
+      }
+      await sleep(1500);
     }
   }
 
-  console.log(`Found thumbnails for ${Object.keys(thumbByBggId).length} of ${Object.keys(GAME_BGG_IDS).length} games\n`);
-
+  console.log(`\nStep 3: downloading images…`);
   let ok = 0;
   let fail = 0;
 
-  for (const [gameId, bggId] of Object.entries(GAME_BGG_IDS)) {
+  for (const [gameId, bggId] of entries) {
     const thumbUrl = thumbByBggId[bggId];
     if (!thumbUrl) {
-      console.log(`  ⚠  ${gameId}: no thumbnail in response`);
+      console.log(`  ⚠  ${gameId}: no thumbnail`);
       fail++;
       continue;
     }
@@ -110,21 +142,19 @@ async function main() {
       const { status, body } = await get(thumbUrl);
       if (status !== 200) throw new Error(`HTTP ${status}`);
       await fs.writeFile(dest, body);
-      const kb = (body.length / 1024).toFixed(1);
-      console.log(`  ✓  ${gameId}  (${kb} KB)`);
+      console.log(`  ✓  ${gameId}  (${(body.length / 1024).toFixed(1)} KB)`);
       ok++;
     } catch (err) {
       console.log(`  ✗  ${gameId}: ${err.message}`);
       fail++;
     }
-
-    await sleep(250); // be polite to BGG CDN
+    await sleep(200);
   }
 
-  console.log(`\nDone: ${ok} downloaded, ${fail} skipped/failed`);
-
+  console.log(`\nResult: ${ok} downloaded, ${fail} skipped/failed out of ${entries.length}`);
   if (ok === 0) {
-    console.error("No images downloaded — build will continue with placeholders.");
+    console.error("WARNING: No images were downloaded. Pages will show placeholders.");
+    // Don't hard-fail the build — the site works without images (just shows placeholders)
   }
 }
 
