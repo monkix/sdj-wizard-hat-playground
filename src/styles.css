@@ -1448,22 +1448,43 @@ select {
   }
 
   .workspace {
-    padding: 16px;
+    padding: 12px;
   }
 
+  /* --- Header --- */
   .site-header {
     position: static;
+    top: 0;
     width: 100%;
-    margin: 0 0 28px;
-    border-radius: 28px;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    border-radius: 22px;
+    gap: 10px;
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .site-links {
-    flex-wrap: wrap;
+  /* Hide the small "Wizards of Learning" label so brand stays compact */
+  .site-brand span {
+    display: none;
   }
 
+  .site-brand strong {
+    font-size: 0.92rem;
+  }
+
+  .site-links {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .site-links a,
+  .site-links button {
+    padding: 8px 11px;
+    font-size: 0.82rem;
+  }
+
+  /* --- Hero --- */
   .hero-section,
   .control-band,
   .section-heading {
@@ -1473,50 +1494,114 @@ select {
   }
 
   .hero-visual {
-    min-height: 126px;
+    min-height: 110px;
   }
 
-  .topbar-actions,
+  /* Keep search + year-select in one row on mobile */
+  .topbar-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+  }
+
+  select {
+    flex: 0 0 auto;
+    padding-right: 26px;
+  }
+
+  /* --- Module strip: 2×2 grid instead of single column --- */
   .mode-strip {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
-  .hero-actions,
+  .mode-card {
+    min-height: 66px;
+    padding: 11px 12px;
+    gap: 10px;
+  }
+
+  /* Hide description text in mode cards to save vertical space */
+  .mode-card p {
+    display: none;
+  }
+
+  .mode-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+
+  /* --- Filter / control band --- */
+  .segment-group {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  /* --- Actions --- */
+  .hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .source-footer {
     align-items: stretch;
     flex-direction: column;
   }
 
+  /* --- Challenge --- */
   .challenge-steps {
     grid-template-columns: 1fr;
   }
 
-  .search-box {
-    width: 100%;
-  }
-
-  .segment-group {
-    overflow-x: auto;
-  }
-
+  /* --- Game detail grids --- */
   .magic-grid,
   .core-grid {
     grid-template-columns: 1fr;
   }
 
+  /* --- Gallery: 2 columns on mobile --- */
+  .box-gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .box-gallery-card {
+    padding: 8px;
+    border-radius: 18px;
+    gap: 7px;
+  }
+
+  .box-gallery-card .game-box-art {
+    min-height: 140px;
+  }
+
+  .box-gallery-copy strong {
+    font-size: 0.96rem;
+  }
+
+  /* --- Lab / mechanic cards --- */
   .filter-grid {
     grid-template-columns: 1fr;
   }
 
   .mechanic-image-card {
-    grid-template-columns: 92px minmax(0, 1fr) auto;
-    min-height: 142px;
+    grid-template-columns: 84px minmax(0, 1fr) auto;
+    min-height: 130px;
+    padding: 10px;
   }
 
   .card-thumb {
-    width: 92px;
-    height: 126px;
+    width: 84px;
+    height: 114px;
   }
 }
 
