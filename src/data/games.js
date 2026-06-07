@@ -849,15 +849,39 @@ export const games = [
   },
 ];
 
+// Pre-verified BGG thing IDs for fast batch fetching (no search needed).
+// Games without an entry here fall back to title search.
+const KNOWN_BGG_IDS = {
+  "colt-express-2015":          "141534",
+  "broom-service-2015":         "161082",
+  "codenames-2016":             "178900",
+  "isle-of-skye-2016":          "176494",
+  "stone-age-junior-2016":      "171586",
+  "kingdomino-2017":            "204583",
+  "exit-das-spiel-2017":        "203416",
+  "icecool-2017":               "212473",
+  "azul-2018":                  "230802",
+  "quacks-of-quedlinburg-2018": "244521",
+  "just-one-2019":              "254640",
+  "wingspan-2019":              "266192",
+  "pictures-2020":              "284435",
+  "die-crew-2020":              "284083",
+  "micromacro-crime-city-2021": "318977",
+  "paleo-2021":                 "300531",
+  "cascadia-2022":              "295947",
+  "living-forest-2022":         "330591",
+  "dorfromantik-2023":          "370591",
+  "challengers-2023":           "359970",
+  "sky-team-2024":              "397291",
+};
+
 games.forEach((game) => {
   const bggQuery = encodeURIComponent(game.title.replace(" / ", " "));
   Object.assign(game, {
+    bggId: KNOWN_BGG_IDS[game.id] || null,
     bggQuery: game.title,
     coverImage: "",
-    coverThumbnail: "",
-    coverCredit: "BoardGameGeek search reference",
     coverSourceUrl: `https://boardgamegeek.com/geeksearch.php?action=search&q=${bggQuery}`,
-    coverStatus: "needs_review",
   });
 });
 

@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useState } from "react";
+import React, { useContext, useDeferredValue, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Award,
@@ -22,6 +22,162 @@ import { awardLanes, coreMechanicFilters, games, tasteMechanicFilters, years } f
 import "./styles.css";
 
 const defaultGameId = "sky-team-2024";
+
+// ---- BGG image fetching ----
+
+const BGGContext = React.createContext({});
+// v3: batch-fetch strategy (pre-populated BGG IDs → single request)
+const BGG_CACHE_KEY = "bgg-thumbnails-v3";
+
+// BGG XML API2 lacks CORS headers; route through a public proxy.
+const BGG_PROXY = "https://api.allorigins.win/raw?url=";
+
+function bggFetch(url) {
+  return fetch(BGG_PROXY + encodeURIComponent(url)).then((r) => {
+    if (!r.ok) throw new Error(`proxy ${r.status}`);
+    return r.text();
+  });
+}
+
+// Parse every <item> in a BGG thing response → { bggId: thumbnailUrl }
+function parseBGGThingXml(xml) {
+  const result = {};
+  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
+  let m;
+  while ((m = itemRe.exec(xml)) !== null) {
+    const bggId = m[1];
+    const thumbM = m[2].match(/<thumbnail>([\s\S]*?)<\/thumbnail>/);
+    if (thumbM) {
+      const u = thumbM[1].trim();
+      result[bggId] = u.startsWith("//") ? `https:${u}` : u;
+    }
+  }
+  return result;
+}
+
+// Fetch thumbnails for a list of known BGG IDs in one request.
+async function batchFetchByBggIds(idPairs) {
+  // idPairs: [{ gameId, bggId }]
+  const ids = idPairs.map((p) => p.bggId).join(",");
+  const url = `https://boardgamegeek.com/xmlapi2/thing?id=${ids}&type=boardgame`;
+  let xml = await bggFetch(url);
+
+  // BGG sometimes queues the request; retry once after a short wait
+  if (!xml.includes("<thumbnail>")) {
+    await new Promise((r) => setTimeout(r, 3500));
+    xml = await bggFetch(url);
+  }
+
+  const byBggId = parseBGGThingXml(xml);
+  const result = {};
+  for (const { gameId, bggId } of idPairs) {
+    result[gameId] = byBggId[bggId] || "";
+  }
+  return result;
+}
+
+// Search BGG by title, then fetch thumbnail from the best-matching result.
+async function searchAndFetch(game) {
+  const q = encodeURIComponent((game.bggQuery || game.title).replace(/ \/ /g, " "));
+  const searchXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/search?query=${q}&type=boardgame`);
+
+  const itemRe = /<item[^>]+id="(\d+)"[^>]*>([\s\S]*?)<\/item>/g;
+  const candidates = [];
+  let m;
+  while ((m = itemRe.exec(searchXml)) !== null) {
+    const yearM = m[2].match(/yearpublished[^>]+value="(\d+)"/);
+    candidates.push({ id: m[1], yearPub: yearM ? parseInt(yearM[1]) : 0 });
+  }
+  if (!candidates.length) return "";
+
+  const best = candidates.find((c) => c.yearPub === game.year) || candidates[0];
+
+  await new Promise((r) => setTimeout(r, 800));
+
+  let thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${best.id}&type=boardgame`);
+  if (!thingXml.includes("<thumbnail>")) {
+    await new Promise((r) => setTimeout(r, 3000));
+    thingXml = await bggFetch(`https://boardgamegeek.com/xmlapi2/thing?id=${best.id}&type=boardgame`);
+  }
+
+  const byId = parseBGGThingXml(thingXml);
+  return byId[best.id] || "";
+}
+
+function useBGGThumbnails(games) {
+  const [thumbnails, setThumbnails] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(BGG_CACHE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const fetchingRef = useRef(false);
+
+  useEffect(() => {
+    if (fetchingRef.current) return;
+    const missing = games.filter((g) => !(g.id in thumbnails));
+    if (!missing.length) return;
+
+    fetchingRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      // Phase 1: batch-fetch all games with pre-populated BGG IDs (1 request)
+      const withId = missing.filter((g) => g.bggId).map((g) => ({ gameId: g.id, bggId: g.bggId }));
+      if (withId.length && !cancelled) {
+        try {
+          const batch = await batchFetchByBggIds(withId);
+          if (!cancelled) {
+            setThumbnails((prev) => {
+              const next = { ...prev, ...batch };
+              try { localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next)); } catch {}
+              return next;
+            });
+          }
+        } catch {
+          // mark as empty so they don't retry on next render
+          if (!cancelled) {
+            setThumbnails((prev) => {
+              const next = { ...prev };
+              for (const { gameId } of withId) next[gameId] = "";
+              return next;
+            });
+          }
+        }
+      }
+
+      // Phase 2: search for remaining games (no pre-populated ID), 2 at a time
+      const withoutId = missing.filter((g) => !g.bggId);
+      for (let i = 0; i < withoutId.length && !cancelled; i += 2) {
+        const slice = withoutId.slice(i, i + 2);
+        await Promise.all(
+          slice.map(async (game) => {
+            try {
+              const thumb = await searchAndFetch(game);
+              if (!cancelled) {
+                setThumbnails((prev) => {
+                  const next = { ...prev, [game.id]: thumb };
+                  try { localStorage.setItem(BGG_CACHE_KEY, JSON.stringify(next)); } catch {}
+                  return next;
+                });
+              }
+            } catch {
+              if (!cancelled) setThumbnails((prev) => ({ ...prev, [game.id]: "" }));
+            }
+          })
+        );
+        if (!cancelled && i + 2 < withoutId.length) await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      fetchingRef.current = false;
+    })();
+
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return thumbnails;
+}
 const wizardHatUrl = "https://wizardsoflearning.com/wizards-hat-board-game-design-tools/";
 const assetPath = (path) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
 
@@ -33,6 +189,7 @@ const modules = [
 ];
 
 function App() {
+  const bggThumbnails = useBGGThumbnails(games);
   const [activeModule, setActiveModule] = useState("explore");
   const [selectedGameId, setSelectedGameId] = useState(defaultGameId);
   const [selectedLane, setSelectedLane] = useState("all");
@@ -85,6 +242,7 @@ function App() {
   }
 
   return (
+    <BGGContext.Provider value={bggThumbnails}>
     <div className="app-shell">
       <main className="workspace">
         <SiteHeader activeModule={activeModule} onModuleChange={setActiveModule} />
@@ -152,6 +310,7 @@ function App() {
         <SourceFooter />
       </main>
     </div>
+    </BGGContext.Provider>
   );
 }
 
@@ -388,22 +547,26 @@ function GalleryView({ visibleGames, selectedGame, selectedGameId, onSelectGame,
 }
 
 function GameBoxArt({ game, compact = false }) {
-  if (game.coverImage) {
+  const thumbnails = useContext(BGGContext);
+  const coverImage = game.coverImage || thumbnails[game.id] || "";
+  const isLoading = !(game.id in thumbnails) && !game.coverImage;
+
+  if (coverImage) {
     return (
       <div className={`game-box-art ${compact ? "compact" : ""}`}>
-        <img src={game.coverImage} alt={`${game.title} box cover`} loading="lazy" />
+        <img src={coverImage} alt={`${game.title} box cover`} loading="lazy" />
       </div>
     );
   }
 
   const Icon = getVerbIcon(game);
   return (
-    <div className={`game-box-art pending ${compact ? "compact" : ""} lane-${game.lane}`}>
+    <div className={`game-box-art pending ${isLoading ? "loading" : ""} ${compact ? "compact" : ""} lane-${game.lane}`}>
       <Icon size={compact ? 17 : 32} />
       {!compact && (
         <>
           <strong>{game.title}</strong>
-          <span>cover pending</span>
+          <span>{isLoading ? "กำลังโหลดรูป…" : "ไม่พบรูป"}</span>
         </>
       )}
     </div>
@@ -420,10 +583,13 @@ function AwardBadge({ game }) {
 }
 
 function CoverStatus({ game }) {
-  const verified = game.coverStatus === "verified";
+  const thumbnails = useContext(BGGContext);
+  const hasCover = game.coverImage || thumbnails[game.id];
+  const isLoading = !(game.id in thumbnails) && !game.coverImage;
+  if (isLoading) return <span className="cover-status loading">โหลดรูป…</span>;
   return (
-    <span className={`cover-status ${verified ? "verified" : "review"}`}>
-      {verified ? "cover verified" : "cover needs review"}
+    <span className={`cover-status ${hasCover ? "verified" : "review"}`}>
+      {hasCover ? "BGG cover" : "ไม่พบรูป"}
     </span>
   );
 }
