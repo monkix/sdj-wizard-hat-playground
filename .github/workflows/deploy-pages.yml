@@ -31,9 +31,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download cover images from BGG
-        run: node scripts/download-covers.mjs
-
       - name: Build
         run: npm run build
 
