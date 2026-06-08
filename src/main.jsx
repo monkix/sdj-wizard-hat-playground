@@ -389,10 +389,22 @@ function GalleryView({ visibleGames, selectedGame, selectedGameId, onSelectGame,
 
 function GameBoxArt({ game, compact = false }) {
   const Icon = getVerbIcon(game);
+  if (compact) {
+    return (
+      <div className={`game-box-art compact lane-${game.lane}`}>
+        <Icon size={17} />
+      </div>
+    );
+  }
+  const lane = awardLanes.find((l) => l.id === game.lane);
   return (
-    <div className={`game-box-art pending ${compact ? "compact" : ""} lane-${game.lane}`}>
-      <Icon size={compact ? 17 : 32} />
-      {!compact && <strong>{game.title}</strong>}
+    <div className={`game-box-art cover-plate lane-${game.lane}`}>
+      <div className="cover-plate-top">
+        <span className="cover-plate-award">{lane?.label}</span>
+        <Icon size={22} />
+      </div>
+      <strong className="cover-plate-title">{game.title}</strong>
+      <span className="cover-plate-meta">{game.year} · {game.verb}</span>
     </div>
   );
 }

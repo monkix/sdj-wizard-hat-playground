@@ -684,61 +684,72 @@ select {
   object-fit: cover;
 }
 
-.game-box-art.pending {
-  gap: 8px;
+/* --- Cover plate: intentional placeholder card art --- */
+.game-box-art.cover-plate {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  text-align: left;
+  gap: 0;
+}
+
+.cover-plate-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  opacity: 0.82;
+}
+
+.cover-plate-award {
+  display: inline-block;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 999px;
   color: #fff;
+  font-size: 0.62rem;
   font-weight: 950;
-  padding: 22px;
-  text-align: center;
-}
-
-.game-box-art.pending::after {
-  content: "";
-  position: absolute;
-  inset: 18px 35%;
-  border-radius: 12px 12px 18px 18px;
-  background: rgba(255, 255, 255, 0.9);
-  transform: skewY(-4deg);
-  box-shadow: 12px 12px 0 rgba(23, 40, 75, 0.13);
-}
-
-.game-box-art.pending svg,
-.game-box-art.pending span,
-.game-box-art.pending strong {
-  position: relative;
-  z-index: 1;
-  color: var(--navy);
-}
-
-.game-box-art.pending strong {
-  max-width: 210px;
-  font-family: "Kanit", "Bai Jamjuree", sans-serif;
-  font-size: 1.35rem;
-  line-height: 1.05;
-}
-
-.game-box-art.pending span {
-  display: block;
-  font-size: 0.74rem;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.game-box-art.pending.lane-spiel {
+.cover-plate-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  font-family: "Kanit", "Bai Jamjuree", sans-serif;
+  font-size: 1.22rem;
+  font-weight: 950;
+  line-height: 1.08;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.cover-plate-meta {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.game-box-art.cover-plate.lane-spiel {
   background:
     repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.18) 0deg 7deg, transparent 7deg 14deg),
-    linear-gradient(135deg, var(--prize-red), #ffb8a9);
+    linear-gradient(135deg, var(--prize-red), #9f1018);
 }
 
-.game-box-art.pending.lane-kenner {
+.game-box-art.cover-plate.lane-kenner {
   background:
-    repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.16) 0deg 7deg, transparent 7deg 14deg),
-    linear-gradient(135deg, #111, #757575);
+    repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.12) 0deg 7deg, transparent 7deg 14deg),
+    linear-gradient(135deg, #333, #080808);
 }
 
-.game-box-art.pending.lane-kinder {
+.game-box-art.cover-plate.lane-kinder {
   background:
     repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.18) 0deg 7deg, transparent 7deg 14deg),
-    linear-gradient(135deg, var(--prize-blue), #c8f5ff);
+    linear-gradient(135deg, var(--prize-blue), #08749b);
 }
 
 .moment-almost-failed,
